@@ -1,0 +1,432 @@
+WBS — Convention Finder & Reminder (PHP/Laravel + MySQL)
+
+0) Project Bootstrap (EPIC)
+
+Deliverables: Laravel app, env config, DB wired, auth scaffolding
+Stories
+
+0.1 Init repo & Laravel
+
+Tasks: laravel new conscraper (or composer create-project laravel/laravel conscraper), set PSR-12, PHPStan, Pint.
+
+AC: App boots locally; /health returns 200 JSON.
+
+Cursor prompt: “Create a minimal Laravel health-check route /health returning {status:'ok'} and add a Feature test.”
+
+
+0.2 Env & secrets
+
+Tasks: .env with DB creds, mailer creds (SendGrid/Mailgun), queue=database.
+
+AC: php artisan migrate succeeds; mail driver sends test.
+
+
+0.3 Auth (email/password)
+
+Tasks: Laravel Breeze or Fortify; email verify flow; Argon2id.
+
+AC: Register, verify, login, logout work; feature tests included.
+
+
+
+
+---
+
+1) Data Model & Migrations (EPIC)
+
+Deliverables: Migrations, models, factories, seeders
+Stories
+
+1.1 Core tables
+
+Tasks: conventions, categories, convention_categories, signup_types, convention_signups.
+
+AC: Migrations idempotent; foreign keys correct; seed categories & signup_types.
+
+Cursor prompt: “Write Laravel migrations and Eloquent models for the schema described: conventions, categories (M2M), signup_types, convention_signups with indices shown. Include model factories and seeders.”
+
+
+1.2 Users & preferences
+
+Tasks: users add timezone, default_lead_days; user_watchlist; reminders.
+
+AC: Unique watch constraint; factories; seeder creates demo user+watchlist.
+
+
+1.3 Scraping metadata
+
+Tasks: sources, scrape_jobs tables.
+
+AC: Indices for status, run_at; simple Eloquent relations.
+
+
+
+
+---
+
+2) Public API & Basic UI (EPIC)
+
+Deliverables: REST endpoints + Blade/Vue pages
+Stories
+
+2.1 API: Con search
+
+Tasks: GET /api/conventions?category=&state=&from=&to=
+
+AC: Pagination, validation, JSON:API-ish output, Feature tests.
+
+Cursor prompt: “Implement a controller and route for /api/conventions with filters (category slug, state, from/to), paginate 20, with request validation and tests.”
+
+
+2.2 API: Con detail & signups
+
+Tasks: GET /api/conventions/{id}, GET /api/conventions/{id}/signups
+
+AC: Returns related categories & signup windows.
+
+
+2.3 UI: Directory & detail
+
+Tasks: Blade views: Search form + cards, detail page listing windows with links.
+
+AC: Mobile responsive; empty-state messages; basic accessibility.
+
+
+
+
+---
+
+3) Watchlist & Reminder Materialization (EPIC)
+
+Deliverables: Users can follow cons/windows; system creates reminder instances
+Stories
+
+3.1 API: Watchlist CRUD
+
+Tasks: POST /api/watchlist, GET /api/watchlist, DELETE /api/watchlist/{id}
+
+AC: Auth-only; prevents duplicates; validates signup_type_id (nullable).
+
+Cursor prompt: “Create WatchlistController with store/index/destroy. On store, materialize reminders for before_open and on_open if open_at exists; otherwise defer until dates discovered.”
+
+
+3.2 Reminder materializer
+
+Tasks: Service to (re)build reminders when a window/date changes.
+
+AC: Rebuild runs idempotently; won’t duplicate pending reminders.
+
+
+3.3 Reminder sender (cron)
+
+Tasks: Artisan command reminders:send; selects pending where trigger_at <= now().
+
+AC: Sends via Mail; records sent_at, status=sent; retry on transient failure.
+
+Cursor prompt: “Implement an Artisan command that sends due reminders (pending, trigger_at <= now). Include unit tests with a fake mailer.”
+
+
+
+
+---
+
+4) Scraper Engine (EPIC)
+
+Deliverables: Polite crawler with link discovery & date parsing, admin review
+Stories
+
+4.1 HTTP & parsing utilities
+
+Tasks: Install Guzzle, DomCrawler, Carbon; UA string; robots.txt respect; rate limits.
+
+AC: Helper to fetch with caching (ETag/If-None-Match) and checksum.
+
+Cursor prompt: “Create a ScrapeClient (Guzzle) with 10s timeout, custom UA, ETag caching table fields (sources.etag, checksum) and a method fetchIfChanged(Source $) returning HTML or null if unchanged.”
+
+
+4.2 Source discovery
+
+Tasks: Given a conventions.website_url, enqueue sources(kind='main'); discover anchor links matching keywords → enqueue typed sources.
+
+AC: Deduplicates per-con; throttles per-host.
+
+
+4.3 Extraction: signup links + statuses
+
+Tasks: Classify links into signup_types; upsert convention_signups.link_url.
+
+AC: Confidence score logged in scrape_jobs.findings.
+
+
+4.4 Extraction: dates
+
+Tasks: Regex/NLP for phrases (“Applications open July 15, 2026” / “Opens 7/15”).
+
+AC: Normalize to UTC with con timezone; partial dates flagged for review.
+
+Cursor prompt: “Implement DateExtractor with patterns for ‘open(s) on {Month Day, Year}’, ‘opens {M/D}’, and ‘closes {Month Day}’. Return Carbon instances or null with reason.”
+
+
+4.5 Event dates & metadata
+
+Tasks: Parse event start/end if present; set next_edition_announced.
+
+
+4.6 Admin review queue
+
+Tasks: /admin/scrape/review shows low-confidence findings to approve/edit.
+
+AC: Edits persist; triggers reminder (re)materialization.
+
+
+
+
+---
+
+5) Email Templates & Comms (EPIC)
+
+Deliverables: Branded, accessible emails; unsubscribe
+Stories
+
+5.1 Templates
+
+Tasks: Three templates (before_open, on_open, event_start), shared header/footer.
+
+AC: Dark-mode friendly; links to signup; includes manage-preferences & unsubscribe.
+
+
+5.2 Unsubscribe & prefs
+
+Tasks: Tokenized unsubscribe URL; toggle per-kind preferences.
+
+AC: Legal footer; audit log of changes.
+
+
+
+
+---
+
+6) Search & Filters (EPIC)
+
+Deliverables: Useful discovery UX
+Stories
+
+6.1 Filters
+
+Tasks: Category chips, state dropdown, date range picker.
+
+AC: SSR + querystring persistence; no N+1 queries.
+
+
+6.2 Sorting
+
+Tasks: Sort by soonest event, soonest signup open, A–Z.
+
+
+6.3 Empty/fallback states
+
+Tasks: Suggestions; link to “submit a con” form.
+
+
+
+
+---
+
+7) Ops, Quality, and Tooling (EPIC)
+
+Deliverables: CI, logs, monitoring, seed data
+Stories
+
+7.1 CI/CD
+
+Tasks: GitHub Actions for test, lint, PHPStan; build artifact; .env.example.
+
+
+7.2 Logging & rate-limits
+
+Tasks: Monolog channels for scrape jobs; per-domain backoff.
+
+
+7.3 Seed pack
+
+Tasks: Seed 10 known cons (name/site/category/state) for dev testing.
+
+
+7.4 ICS export (nice-to-have)
+
+Tasks: GET /api/watchlist.ics per user token.
+
+AC: Valid ICS with upcoming reminders as VEVENTs.
+
+
+
+
+---
+
+8) SuiteCRM Integration (Phase 2 EPIC)
+
+Deliverables: Mirror data to SuiteCRM modules (optional)
+Stories
+
+8.1 SuiteCRM custom modules
+
+Tasks: Conventions, Convention Signup Windows; vardefs matching core fields.
+
+AC: Modules install via Module Loader; fields map 1:1.
+
+
+8.2 Sync service
+
+Tasks: Laravel job to upsert conventions/signups into SuiteCRM via REST.
+
+AC: Bi-directional ID mapping; conflict policy: Laravel is source of truth.
+
+
+8.3 Dashlet
+
+Tasks: Show upcoming watched windows (count) per user/team.
+
+
+
+
+---
+
+9) Security & Compliance (EPIC)
+
+Deliverables: Hardened auth, PII safeguards
+Stories
+
+9.1 Password policy
+
+Tasks: Argon2id, min length, breach check (k-Anonymity optional).
+
+
+9.2 Rate limiting
+
+Tasks: Throttle login, watchlist events, scraper requests by host.
+
+
+9.3 Privacy
+
+Tasks: Store minimal PII; delete account flow.
+
+
+
+
+---
+
+10) Deployment (EPIC)
+
+Deliverables: Production stack running
+Stories
+
+10.1 Infrastructure
+
+Tasks: Dockerfile (PHP-FPM + Nginx), MySQL 8, Redis; queue worker.
+
+
+10.2 Scheduling
+
+Tasks: php artisan schedule:run cron every minute; queues supervised.
+
+
+10.3 Backups
+
+Tasks: Nightly DB backup; retention policy; restore runbook.
+
+
+10.4 Observability
+
+Tasks: Error tracking (Sentry/Bugsnag), uptime checks, log rotation.
+
+
+
+
+---
+
+Milestone Plan (by sequence)
+
+1. Bootstrap + Schema (0–1–2.1)
+
+
+2. Auth + Basic UI (0.3, 2.2–2.3)
+
+
+3. Watchlist + Reminders (3.x, 5.1)
+
+
+4. Scraper MVP + Admin Review (4.1–4.4)
+
+
+5. Search/Filters + Email polish (5.2, 6.x)
+
+
+6. Ops/CI/Deploy (7.x, 9.x, 10.x)
+
+
+7. SuiteCRM (8.x)
+
+
+
+
+---
+
+Ready-to-Paste Cursor Prompts (mini-specs)
+
+Migrations & Models (bundle)
+
+> Build Laravel migrations and Eloquent models for: conventions, categories (M2M), convention_categories, signup_types, convention_signups, users (add timezone, default_lead_days), user_watchlist, reminders, sources, scrape_jobs. Include indices from this spec, model factories, and seeders that create 8 categories, 7 signup_types, and 5 sample conventions with 1–3 signup windows each.
+
+
+
+Watchlist + Reminder Materializer
+
+> Implement a WatchlistController (store/index/destroy). On store: (a) validate convention_id and optional signup_type_id, (b) create or ignore duplicate, (c) materialize reminders: if signup has open_at, create before_open at open_at - lead_days and on_open at open_at. If open_at is null, skip but mark a “deferred” flag. Write unit tests.
+
+
+
+Reminder Sender Command
+
+> Create an Artisan command reminders:send that selects reminders where status=pending and trigger_at <= now() (UTC), sends an email via Mailable with template by kind, marks sent_at and status=sent, and retries on transient failures. Include tests with faked mail.
+
+
+
+Scrape Client + Extractors
+
+> Create a ScrapeClient wrapper around Guzzle with ETag/If-None-Match support and a per-host rate limiter. Add a LinkExtractor that finds anchors with keywords (press, exhibitor, vendor, artist, professional, register, ticket) and classifies to signup_types. Add a DateExtractor that parses “opens on {Month Day, Year}”, “opens {M/D}”, and “closes {Month Day}”. On discovery, upsert sources rows and convention_signups.link_url. On dates, update open_at/close_at. Add unit tests using fixture HTML.
+
+
+
+Admin Review UI
+
+> Build an /admin/scrape/review page (Blade) listing recent scrape_jobs with low confidence or text-date ambiguity. Allow editing open_at/close_at/link_url/status inline and saving. On save, call the reminder materializer for affected convention_signups.
+
+
+
+Public Directory & Detail
+
+> Build / listing conventions with filters (category, state, date range). Detail page shows dates, categories, and table of signup windows with their status, open/close times, and “Remind me” buttons. Ensure accessibility and responsive layout.
+
+
+
+
+
+---
+
+Definition of Done (DoD) checklist (copy for PRs)
+
+[ ] All new migrations run and roll back cleanly
+
+[ ] Unit/Feature tests cover new logic (≥80% on changed lines)
+
+[ ] No N+1 queries; pagination in place
+
+[ ] Timestamps stored in UTC; user/convention TZ applied on render
+
+[ ] Emails have unsubscribe & preference links
+
+[ ] Scraper respects robots.txt and rate limits
+
+[ ] Logs include correlation IDs for scrape jobs and emails
+
+[ ] Security: auth guarded routes; inputs validated & sanitized

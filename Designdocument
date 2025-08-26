@@ -1,0 +1,318 @@
+Design Document
+
+Project: Convention Management System (ConScraper)
+Prepared by: [Your Name / Webbwerx]
+Date: [Insert Date]
+
+
+---
+
+1. Overview
+
+The Convention Management System (CMS, codename ConScraper) is a web platform for fans, creators, and businesses to discover, track, and manage convention opportunities across the U.S. in comics, pop culture, anime, horror, movies, and related fandoms.
+
+The system:
+
+1. Scrapes convention information (dates, categories, signup links).
+
+
+2. Stores data in a structured PHP/MySQL database.
+
+
+3. Lets users create accounts to follow conventions and sign-up windows.
+
+
+4. Sends reminders to user emails before and when registrations open.
+
+
+5. Prepares for SuiteCRM integration as a future module.
+
+
+
+
+---
+
+2. Goals & Non-Goals
+
+Goals
+
+Centralized database of U.S. conventions by category.
+
+Accurate tracking of signup windows for multiple roles (attendee, press, pro, artist, exhibitor, vendor, etc.).
+
+User accounts with watchlist + reminders.
+
+Automated email notifications (before + on open date).
+
+Scalable scraping pipeline for new cons & updates.
+
+Extendable into SuiteCRM module for business workflows.
+
+
+Non-Goals (Phase 1)
+
+Ticket purchasing or badge fulfillment (we only link).
+
+Mobile app (web-first, responsive design).
+
+Social features (reviews, ratings, chat).
+
+
+
+---
+
+3. Users & Personas
+
+1. Fan/Attendee
+
+Wants to know when badges open, track multiple cons, and never miss registration.
+
+
+2. Creator/Artist/Exhibitor
+
+Needs reminders for artist alley, exhibitor, vendor deadlines.
+
+May manage multiple conventions per year.
+
+
+3. Press/Professional
+
+Uses system to track press/pro sign-up windows.
+
+
+4. Business/Publisher
+
+Larger teams tracking multiple conventions, need SuiteCRM integration.
+
+
+
+---
+
+4. System Architecture
+
+High-Level Flow
+
+1. Scraper Engine → collects con data from official sites.
+
+
+2. Database Layer (MySQL) → stores conventions, categories, signups, users, reminders.
+
+
+3. Web Application (PHP/Laravel) → user interface + APIs.
+
+
+4. Reminder Service (Cron + Mailer) → generates/sends scheduled email reminders.
+
+
+5. SuiteCRM Integration Layer → REST API / module for business use.
+
+
+
+Tech Stack
+
+Backend: PHP 8.2 (Laravel preferred, Slim/CodeIgniter as alternative).
+
+Database: MySQL 8.x.
+
+Frontend: Blade templates or Vue.js (optional SPA).
+
+Scraping: GuzzleHTTP + Symfony DomCrawler.
+
+Email: SendGrid/Mailgun (SMTP).
+
+Hosting: LAMP stack or Docker containerized.
+
+
+
+---
+
+5. Database Schema (Simplified)
+
+Conventions
+
+id, name, website_url, location, start_date, end_date, categories
+
+
+Convention_Signups
+
+id, convention_id, type (attendee, press, artist, exhibitor, vendor), link_url, open_at, close_at
+
+
+Users
+
+id, email, password_hash, timezone, default_lead_days
+
+
+Watchlist
+
+user_id, convention_id, signup_type_id, lead_days, notify_before, notify_on_open
+
+
+Reminders
+
+id, user_id, convention_id, trigger_at, kind (before_open, on_open, event_start), status
+
+
+
+---
+
+6. Core Features (Phase 1 MVP)
+
+1. Convention Scraping Engine
+
+Crawl convention sites.
+
+Extract dates, signup links, categories.
+
+Normalize into database.
+
+Admin dashboard for validation.
+
+
+
+2. User Accounts & Authentication
+
+Register/login (email/password).
+
+Email verification.
+
+Basic profile (timezone, default reminder days).
+
+
+
+3. Convention Directory
+
+Search/filter by category, location, dates.
+
+Convention detail pages (links to signup forms).
+
+
+
+4. Watchlist & Reminders
+
+Add conventions or signup windows to personal watchlist.
+
+Auto-generate reminders (before open date & on open).
+
+Email notifications with direct signup link.
+
+
+
+
+
+---
+
+7. Future Enhancements (Phase 2+)
+
+Calendar/ICS export (sync with Google/Outlook).
+
+Advanced search (by region, size, guests).
+
+Mobile app (React Native wrapper).
+
+CRM Module for SuiteCRM:
+
+Mirror conventions & signups in SuiteCRM modules.
+
+Surface reminders as SuiteCRM tasks/events.
+
+
+Team accounts for publishers/businesses.
+
+Analytics: which cons have most signups tracked.
+
+
+
+---
+
+8. Security & Compliance
+
+Passwords stored with Argon2id hashing.
+
+All dates/times stored in UTC; localized per user.
+
+Encrypted SMTP for email.
+
+Rate limiting on scrapers.
+
+Respect robots.txt; manual review for sensitive sites.
+
+
+
+---
+
+9. Risks & Mitigations
+
+Scraping fragility: Sites change layouts → Mitigation: regex + manual admin review.
+
+Spam emails: Reminder floods → Mitigation: unsubscribe link + per-user cap.
+
+Data completeness: Some cons don’t post signup dates early → Mitigation: allow “unknown” placeholders + user-submitted corrections.
+
+SuiteCRM integration complexity: Start with API sync before full module.
+
+
+
+---
+
+10. Roadmap
+
+Phase 1 (MVP, 2–3 months)
+
+Scraper engine + admin review
+
+Con DB schema + user accounts
+
+Watchlist + reminders + email sender
+
+Public site with directory/search
+
+
+Phase 2 (3–6 months)
+
+Calendar exports
+
+Mobile-friendly enhancements
+
+SuiteCRM proof-of-concept module
+
+
+Phase 3 (6–12 months)
+
+Team/business accounts
+
+Advanced analytics & dashboards
+
+Sponsorship/ad placement
+
+
+
+---
+
+11. Example User Flow
+
+1. User signs up with email.
+
+
+2. Searches “Anime cons in California 2026”.
+
+
+3. Clicks “Anime Expo” → sees dates + signup windows.
+
+
+4. Adds Press Application to watchlist with 14-day early reminder.
+
+
+5. System sends:
+
+“Reminder: Anime Expo Press opens in 14 days.”
+
+“Press signups are now OPEN!”
+
+
+
+
+
+---
+
+⚡ That’s the first draft of the design doc — professional, developer-friendly, and business-facing.
